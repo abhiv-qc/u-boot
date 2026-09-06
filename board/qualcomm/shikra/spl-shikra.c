@@ -4,7 +4,9 @@
  */
 #include <blk.h>
 #include <asm/io.h>
+#include <asm/sections.h>
 #include <dm/uclass.h>
+#include <init.h>
 #include <linux/err.h>
 #include <linux/string.h>
 #include <mach/qclib.h>
@@ -53,6 +55,45 @@ enum {
 	IPQ_SPL_BOOTCFG_DEV_EMMC_SD		= 0x4,
 	IPQ_SPL_BOOTCFG_DEV_MAX
 };
+
+#if defined(CONFIG_SPL_BUILD)
+void board_init_f(ulong dummy)
+{
+	int ret = 0;
+
+	memset(__bss_start, 0, __bss_end - __bss_start);
+
+	qcom_spl_malloc_init_f();
+
+	ret = spl_early_init();
+	if (ret) {
+		pr_debug("spl_early_init() failed (%d)\n", ret);
+		goto fail;
+	}
+
+	event_notify_null(EVT_LAST_STAGE_INIT);
+
+	preloader_console_init();
+
+	ret = qcom_spl_loader_pre_ddr(spl_boot_device());
+	if (ret) {
+		pr_debug("qcom_spl_loader_pre_ddr() failed (%d)\n", ret);
+		goto fail;
+	}
+
+	ret = qcom_spl_invoke_qclib();
+	if (ret) {
+		pr_debug("qcom_spl_invoke_qclib() failed (%d)\n", ret);
+		goto fail;
+	}
+
+	board_init_r(NULL, 0);
+
+fail:
+	if (ret)
+		reset_cpu();
+}
+#endif
 
 u64 shikra_get_ddr_sr_exit_address(void)
 {
