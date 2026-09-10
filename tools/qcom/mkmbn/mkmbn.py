@@ -105,6 +105,9 @@ parser.add_argument(
     "-l", "--load", type=lambda x: int(x, 0), default=0, help="Load address"
 )
 parser.add_argument(
+    "-m", "--melfs", nargs='+', default=[], help="List of ELFs to include in multi-elf"
+)
+parser.add_argument(
     "-o", "--output", type=Path, default="u-boot.mbn", help="Output file"
 )
 parser.add_argument(
@@ -115,6 +118,18 @@ parser.add_argument(
 )
 args = parser.parse_args()
 verbose = args.verbose
+
+if (len(args.melfs)):
+    try:
+        with open(args.output, "wb") as f:
+            for path in args.melfs:
+                with open(path, 'rb') as tmp:
+                    f.write(tmp.read())
+    except Exception as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    sys.exit(0)
 
 elf = Elf()
 
