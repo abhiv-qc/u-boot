@@ -16,17 +16,17 @@ u-boot.mbn: u-boot.bin FORCE
 ifeq ($(CONFIG_QCOM_GENERATE_MBN),y)
 
 quiet_cmd_mksplmbn = SPLMBN     $@
-      cmd_mksplmbn = $(CMD_MKMBN) -o spl/u-boot-spl.mbn -l $(CONFIG_SPL_TEXT_BASE) -s 4 $<
+      cmd_mksplmbn = $(CMD_MKMBN) -o spl/u-boot-spl.mbn -l $(CONFIG_SPL_TEXT_BASE) $<
 
 INPUTS-$(CONFIG_SPL) += spl/u-boot-spl.mbn
 
 spl/u-boot-spl.mbn: spl/u-boot-spl.bin FORCE
 	$(call if_changed,mksplmbn)
 
-ifneq ($(wildcard $(CONFIG_QCOM_TMEL_ELF)),)
+ifneq ($(wildcard $(CONFIG_QCOM_TMEL_ELF:"%"=%)),)
 
 quiet_cmd_mksplmelf = SPLMELF     $@
-      cmd_mksplmelf = $(CMD_MKMBN) -o spl/u-boot-spl.melf -m spl/u-boot-spl.mbn,$(CONFIG_QCOM_TMEL_ELF) -s 4
+      cmd_mksplmelf = $(CMD_MKMBN) -m spl/u-boot-spl.mbn $(CONFIG_QCOM_TMEL_ELF:"%"=%) -o spl/u-boot-spl.melf $<
 
 INPUTS-$(CONFIG_SPL) += spl/u-boot-spl.melf
 
