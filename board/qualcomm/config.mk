@@ -23,10 +23,10 @@ INPUTS-$(CONFIG_SPL) += spl/u-boot-spl.mbn
 spl/u-boot-spl.mbn: spl/u-boot-spl.bin FORCE
 	$(call if_changed,mksplmbn)
 
-ifneq ($(wildcard $(CONFIG_QCOM_TMEL_ELF)),)
+ifneq ($(wildcard $(CONFIG_QCOM_TMEL_ELF:"%"=%)),)
 
 quiet_cmd_mksplmelf = SPLMELF     $@
-      cmd_mksplmelf = $(CMD_MKMBN) -o spl/u-boot-spl.melf spl/u-boot-spl.mbn $(CONFIG_QCOM_TMEL_ELF)
+      cmd_mksplmelf = $(CMD_MKMBN) -m spl/u-boot-spl.mbn $(CONFIG_QCOM_TMEL_ELF:"%"=%) -o spl/u-boot-spl.melf $<
 
 INPUTS-$(CONFIG_SPL) += spl/u-boot-spl.melf
 
