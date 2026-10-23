@@ -213,21 +213,28 @@ static int shikra_prepare_qup_clocks(void)
 }
 
 /**
- * shikra_prepare_boot_mmc() - Initialize the boot MMC device.
+ * shikra_prepare_mmc() - Initialize the selected MMC boot device.
  *
  * Make the boot MMC device available before loading QUP firmware.
  *
  * Return: 0 on success, or a negative error code.
  */
-static int shikra_prepare_boot_mmc(void)
+static int shikra_prepare_mmc(u32 boot_device)
 {
 	struct udevice *dev;
 	struct mmc *mmc;
-	int boot_device, seq, ret;
+	int seq, ret;
 
-	boot_device = shikra_boot_device(&seq);
-	if (boot_device != BOOT_DEVICE_MMC1 && boot_device != BOOT_DEVICE_MMC2)
+	switch (boot_device) {
+	case BOOT_DEVICE_MMC1:
+		seq = 0;
+		break;
+	case BOOT_DEVICE_MMC2:
+		seq = 1;
+		break;
+	default:
 		return -ENODEV;
+	}
 
 	ret = uclass_get_device_by_seq(UCLASS_MMC, seq, &dev);
 	if (ret)
@@ -244,6 +251,36 @@ static int shikra_prepare_boot_mmc(void)
 		((struct mmc_config *)mmc->cfg)->host_caps |= MMC_CAP_NEEDS_POLL;
 
 	return mmc_init(mmc);
+}
+
+/**
+ * qcom_spl_prepare_qupfw_media() - Prepare media for QUPFW loading.
+ * @boot_device: U-Boot boot-device identifier.
+ *
+ * Prepare media that must be initialized before QUP firmware loading.
+ * Media without an early-preparation requirement are intentionally left as
+ * placeholders and are handled by their SPL image loader later in the flow.
+ *
+ * Return: 0 on success, or a negative error code.
+ */
+static int qcom_spl_prepare_qupfw_media(u32 boot_device)
+{
+	switch (boot_device) {
+	case BOOT_DEVICE_MMC1:
+	case BOOT_DEVICE_MMC2:
+		return shikra_prepare_mmc(boot_device);
+
+	case BOOT_DEVICE_NAND:
+		/* Future NAND preparation, if required before QUPFW loading. */
+		return 0;
+
+	case BOOT_DEVICE_USB:
+		/* Future USB preparation, if required before QUPFW loading. */
+		return 0;
+
+	default:
+		return -ENOTSUPP;
+	}
 }
 
 /**
@@ -275,6 +312,7 @@ static void shikra_release_qupfw(void)
 
 void board_init_f(ulong dummy)
 {
+	int boot_device;
 	int ret = 0;
 
 	memset(__bss_start, 0, __bss_end - __bss_start);
@@ -293,9 +331,15 @@ void board_init_f(ulong dummy)
 		goto fail;
 	}
 
-	ret = shikra_prepare_boot_mmc();
+	boot_device = (int)spl_boot_device();
+	if (boot_device < 0) {
+		ret = boot_device;
+		goto fail;
+	}
+
+	ret = qcom_spl_prepare_qupfw_media(boot_device);
 	if (ret) {
-		pr_debug("failed to prepare boot MMC (%d)\n", ret);
+		pr_debug("failed to prepare QUPFW media (%d)\n", ret);
 		goto fail;
 	}
 
@@ -314,7 +358,7 @@ void board_init_f(ulong dummy)
 	enable_caches();
 #endif
 
-	ret = qcom_spl_loader_pre_ddr(spl_boot_device());
+	ret = qcom_spl_loader_pre_ddr(boot_device);
 	if (ret) {
 		pr_debug("qcom_spl_loader_pre_ddr() failed (%d)\n", ret);
 		goto fail;
